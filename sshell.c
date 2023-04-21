@@ -9,7 +9,6 @@
 
 #define CMDLINE_MAX 512
 #define MAX_PIPE 10
-
 //defines structures
 /* output,error, input redirection and piping
  *
@@ -19,7 +18,6 @@
  * num_cmds: commands present in pipe
  */
 //help with pointers taken from https://www.scaler.com/topics/c/pointers-and-structures-in-c/
-
 typedef struct cmdline {
   char *argument[MAX_PIPE][CMDLINE_MAX];
   char *output_file[MAX_PIPE];
@@ -27,33 +25,29 @@ typedef struct cmdline {
   int num_cmds;
 } cmdline;
 
-//function is in charge of substituting environment variables with their respective values in command line arguments.
 void env_var(const char *var, const char *value) {
   if (value == NULL) {
     if (unsetenv(var) != 0) {
       perror("unsetenv");
     }
-  } 
-  else {
+  } else {
     if (setenv(var, value, 1) != 0) {
       perror("setenv");
     }
   }
 }
-
-void replace_env_vars(char **arg) {
+//function is in charge of substituting environment variables with their respective values in command line arguments.
+void replace_commands(char **arg) {
   while (*arg != NULL) {
     if ((*arg)[0] == '$') {
       if (islower((*arg)[1]) && (*arg)[2] == '\0') {
         char *env_var_value = getenv(*arg + 1);
         if (env_var_value != NULL) {
           *arg = env_var_value;
-        } 
-        else {
+        } else {
           *arg = "";
         }
-      } 
-      else {
+      } else {
         fprintf(stderr, "Error: invalid variable name\n");
         exit(1);
       }
@@ -61,9 +55,9 @@ void replace_env_vars(char **arg) {
     arg++;
   }
 }
-
 // pipeing different commands. we modifed the professors code given in systemcalls slide
 //great help of piping from https://tldp.org/LDP/lpg/node11.html#:~:text=To%20create%20a%20simple%20pipe,be%20used%20for%20the%20pipeline.
+
 void pipeline(int cmd_index, cmdline *arg) {
   int fd[2];
   pipe(fd);
@@ -78,8 +72,7 @@ void pipeline(int cmd_index, cmdline *arg) {
     if (cmd_index + 1 < arg->num_cmds - 1) {
       // Intermediate command
       pipeline(cmd_index + 1, arg);
-    } 
-    else {
+    } else {
       // Last command
       if (arg->output_file[cmd_index + 1] != NULL) {
         int output_fd = open(arg->output_file[cmd_index + 1],
@@ -111,13 +104,12 @@ void pipeline(int cmd_index, cmdline *arg) {
         }
         close(error_fd);
       }
-      replace_env_vars(arg->argument[cmd_index + 1]);
+      replace_commands(arg->argument[cmd_index + 1]);
       execvp(arg->argument[cmd_index + 1][0], arg->argument[cmd_index + 1]);
       perror("execvp");
       exit(1);
     }
-  } 
-  else if (pid == 0) {
+  } else if (pid == 0) {
     // Child
     close(fd[0]);
     dup2(fd[1], STDOUT_FILENO);
@@ -135,17 +127,16 @@ void pipeline(int cmd_index, cmdline *arg) {
       close(dev_null_fd);
     }
 
-    replace_env_vars(arg->argument[cmd_index]);
+    replace_commands(arg->argument[cmd_index]);
     execvp(arg->argument[cmd_index][0], arg->argument[cmd_index]);
     perror("execvp");
     exit(1);
-  } 
-  else {
+  } else {
     perror("fork");
     exit(1);
   }
 }
-//determine if any one command or multiple
+//determine if call to pipeline needed or not
 void execute_pipeline(cmdline *arg) {
   int pid;
 
@@ -160,10 +151,9 @@ void execute_pipeline(cmdline *arg) {
           // Redirect stdout and stderr to the same file
           output_fd = error_fd =
               open(arg->error_file[0], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        } 
-        else {
-          // Redirect stdout to the specified file
+        } else {
           output_fd =
+          // Redirect stdout to the specified file
               open(arg->output_file[0], O_WRONLY | O_CREAT | O_TRUNC, 0644);
         }
         if (output_fd == -1) {
@@ -177,11 +167,10 @@ void execute_pipeline(cmdline *arg) {
         close(output_fd);
       }
       if (arg->error_file[0] != NULL) {
+        // Redirect stderr to the same file as stdout
         if (strcmp(arg->error_file[0], ">&") == 0) {
-          // Redirect stderr to the same file as stdout
           error_fd = output_fd;
-        } 
-        else {
+        } else {
           // Redirect stderr to the specified file
           error_fd =
               open(arg->error_file[0], O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -196,17 +185,15 @@ void execute_pipeline(cmdline *arg) {
         }
         close(error_fd);
       }
-      replace_env_vars(arg->argument[0]);
+      replace_commands(arg->argument[0]);
       execvp(arg->argument[0][0], arg->argument[0]);
       perror("execvp");
       exit(1);
-    } 
-    else if (pid > 0) {
+    } else if (pid > 0) {
       // Parent process waits for child process to finish
       waitpid(pid, NULL, 0);
     }
-  } 
-  else {
+  } else {
     // Multiple pipes
     pid = fork();
     if (pid == 0) {
@@ -218,7 +205,7 @@ void execute_pipeline(cmdline *arg) {
   int status;
   // Wait for all child processes to finish
   while ((pid = waitpid(-1, &status, 0)) > 0) {
-     //for this part we got help from https://www.geeksforgeeks.org/exit-status-child-process-linux/#
+    //for this part we got help from https://www.geeksforgeeks.org/exit-status-child-process-linux/#
     if (WIFEXITED(status)) {
       int retval = WEXITSTATUS(status);
       for (int i = 0; i < arg->num_cmds; i++) {
@@ -240,18 +227,18 @@ void execute_pipeline(cmdline *arg) {
           }
         }
       }
-      // Print completion message
+       // Print completion message
       printf("+ completed ");
       //join the completed command string
       for (int i = 0; i < arg->num_cmds; i++) {
         printf("'%s", arg->argument[i][0]);
         if (i != arg->num_cmds - 1) {
-          printf(" | "); // add pipe symbol b/w command
+          printf(" | ");
         } else {
           printf("' ");
         }
       }
-      // adding exit codes to command,print whole commmand
+      // adding exit codes to command
       for (int i = 0; i < arg->num_cmds; i++) {
         printf("[%d]", retval);
       }
@@ -259,61 +246,9 @@ void execute_pipeline(cmdline *arg) {
     }
   }
 }
-int execute_command(cmdline *arg) {
-  char *cmd = arg->argument[0][0];
-
-  if (strcmp(cmd, "exit") == 0) {
-    return 1; // exit flag
-  } 
-  else if (strcmp(cmd, "cd") == 0) {
-    // Change directory command
-    if (arg->argument[1] == NULL) {
-        fprintf(stderr, "expected argument to \"cd\"\n");
-    } 
-    else {
-        if (chdir(arg->argument[1]) != 0) {
-            perror("cd");
-        }
-    }
-  } 
-  else if (strcmp(cmd, "pwd") == 0) {
-    // Print working directory command
-    if (getcwd(NULL, 0) == NULL) {
-        perror("pwd");
-    } 
-    else {
-        char cwd[PATH_MAX];
-        if (getcwd(cwd, sizeof(cwd)) != NULL) {
-            printf("%s\n", cwd);
-        } 
-        else {
-            perror("pwd");
-        }
-    }
-  }
-  else if (strcmp(cmd, "set") == 0) {
-    // Set environment variable command
-    if (arg->argument[1] == NULL || arg->argument[2] == NULL) {
-        fprintf(stderr, "expected two arguments to \"set\"\n");
-    } 
-    else {
-        if (setenv(arg->argument[1], arg->argument[2], 1) != 0) {
-            perror("set");
-        }
-    }
-  } 
-  else {
-    return 0; // not a built-in command
-  }
-  
-  return 0;
-}
-
-
 /*The command line input must be parsed by this section of the code in order to be stored in the correct data structure. 
 The input string is divided into tokens using the strtok() function, and each token is checked to determine how to be stored. 
 The command and parameter arrays produced after all tokens have been processed are kept in the cmdline struct.*/
-
 void inspect_token(cmdline *arg, char *cmd, int *has_error) {
   char *token;
   int cmd_index = 0;
@@ -322,7 +257,6 @@ void inspect_token(cmdline *arg, char *cmd, int *has_error) {
 
   token = strtok(cmd, " \t\n\r");
   //im going to check for different commands given by the user if piping or redirection is needed
-
   while (token != NULL) {
     if (strcmp(token, "|") == 0) {
       if (arg_index == 0) {
@@ -384,7 +318,6 @@ void inspect_token(cmdline *arg, char *cmd, int *has_error) {
         fprintf(stderr, "Error: too many process arguments\n");
         *has_error = 1;
       }
-      // regular argument
       arg->argument[cmd_index][arg_index++] = token;
     }
     token = strtok(NULL, " \t\n\r");
@@ -392,10 +325,10 @@ void inspect_token(cmdline *arg, char *cmd, int *has_error) {
   if (arg_index == 0) {
     fprintf(stderr, "Error: missing command\n");
   }
-
+  // regular argument
   arg->argument[cmd_index][arg_index] = NULL;
   arg->num_cmds = cmd_index + 1;
-//if error redriect it to the file
+  //if error redriect it to the file
   if (redirect_stderr) {
     int i;
     for (i = 0; i < arg->num_cmds; i++) {
@@ -407,35 +340,97 @@ void inspect_token(cmdline *arg, char *cmd, int *has_error) {
 }
 
 int main(void) {
+  int has_error = 0;
   char cmd[CMDLINE_MAX];
-
   while (1) {
+    cmdline arg;
+    memset(&arg, 0, sizeof(cmdline));
+    has_error = 0;
+
     /* Print prompt */
     printf("sshell@ucd$ ");
     fflush(stdout);
-      /* Get command line */
+
+    /* Get command line */
     fgets(cmd, CMDLINE_MAX, stdin);
+
     /* Print command line if stdin is not provided by terminal */
-    if (feof(stdin)) {
-      printf("\n");
-      break;
+    if (!isatty(STDIN_FILENO)) {
+      printf("%s", cmd);
+      fflush(stdout);
     }
-    cmdline arg;
-    int has_error = 0;
+
+    /* Remove trailing newline from command line */
+    char *nl = strchr(cmd, '\n');
+    if (nl) {
+      *nl = '\0';
+    }
+
     inspect_token(&arg, cmd, &has_error);
+
+    // decide whether to move forward with execution or not if error occurs
     if (has_error) {
       continue;
     }
-    /* Execute builtin command */
 
-    int status = execute_command(&arg);
-    if (status == 1) {
+    /* Builtin command */
+    if (!strcmp(arg.argument[0][0], "exit")) {
+      fprintf(stderr, "Bye...\n");
+      int retval = 0;
+      fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
+      fflush(stdout);
+      // exit(0);
       break;
-    } 
-    else if (status == 0) {
+    } else if (!strcmp(arg.argument[0][0], "cd")) {
+      /* Change directory to the home directory or specified directory */
+      char *dir_arg = arg.argument[0][1];
+      int chdir_result = 0;
+      if (dir_arg == NULL) {
+        chdir_result = chdir(getenv("HOME"));
+      } else {
+        chdir_result = chdir(dir_arg);
+      }
+      /* Get the current working directory after the `chdir` call */
+      char cwd[CMDLINE_MAX];
+      if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        if (dir_arg) {
+          fprintf(stderr, "+ completed 'cd %s' [%d]\n", dir_arg, chdir_result);
+        } else {
+          fprintf(stderr, "+ completed 'cd' [%d]\n", chdir_result);
+        }
+      } else {
+        perror("getcwd() error");
+      }
+    } else if (!strcmp(arg.argument[0][0], "pwd")) {
+      /* Print the current working directory */
+      char cwd[CMDLINE_MAX];
+      if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("%s\n", cwd);
+        fprintf(stderr, "+ completed 'pwd' [0]\n");
+      } else {
+        perror("getcwd() error");
+      }
+    } else if (!strcmp(arg.argument[0][0], "set")) {
+      char *var = arg.argument[0][1];
+      char *value = arg.argument[0][2];
+      if (!var) {
+        fprintf(stderr, "Error: variable name not provided\n");
+      } else if (!islower(var[0]) || var[1] != '\0') {
+        fprintf(stderr, "Error: invalid variable name\n");
+      } else {
+        env_var(var, value);
+        if (value != NULL) {
+          fprintf(stderr, "+ completed 'set %s %s' [0]\n", var, value);
+        } else {
+          fprintf(stderr, "+ completed 'set %s' [0]\n", var);
+        }
+      }
+
+    } else {
       /* Regular command */
       execute_pipeline(&arg);
     }
   }
-  return 0;
+
+  return EXIT_SUCCESS;
 }
