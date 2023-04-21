@@ -339,7 +339,7 @@ void inspect_token(cmdline *arg, char *cmd, int *has_error) {
   }
 }
 
-void executing_command(Arguments arg, char *cmd) {
+void executing_command(cmdline arg, char *cmd) { {
   /* Builtin command */
   if (!strcmp(arg.argument[0][0], "exit")) {
     fprintf(stderr, "Bye...\n");
