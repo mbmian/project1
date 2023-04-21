@@ -111,7 +111,7 @@ void pipeline(int cmd_index, cmdline *arg) {
         }
         close(error_fd);
       }
-      substitute_env_vars(arg->argument[cmd_index + 1]);
+      replace_env_vars(arg->argument[cmd_index + 1]);
       execvp(arg->argument[cmd_index + 1][0], arg->argument[cmd_index + 1]);
       perror("execvp");
       exit(1);
