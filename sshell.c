@@ -278,12 +278,17 @@ int execute_command(cmdline *arg) {
   } 
   else if (strcmp(cmd, "pwd") == 0) {
     // Print working directory command
-    char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        printf("%s\n", cwd);
+    if (getcwd(NULL, 0) == NULL) {
+        perror("pwd");
     } 
     else {
-        perror("pwd");
+        char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf("%s\n", cwd);
+        } 
+        else {
+            perror("pwd");
+        }
     }
   }
   else if (strcmp(cmd, "set") == 0) {
@@ -300,6 +305,8 @@ int execute_command(cmdline *arg) {
   else {
     return 0; // not a built-in command
   }
+  
+  return 0;
 }
 
 
