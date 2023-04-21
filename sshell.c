@@ -339,6 +339,67 @@ void inspect_token(cmdline *arg, char *cmd, int *has_error) {
   }
 }
 
+void executing_command(Arguments arg, char *cmd) {
+  /* Builtin command */
+  if (!strcmp(arg.argument[0][0], "exit")) {
+    fprintf(stderr, "Bye...\n");
+    int retval = 0;
+    fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
+    fflush(stdout);
+    // exit(0);
+    break;
+  } else if (!strcmp(arg.argument[0][0], "cd")) {
+    /* Change directory to the home directory or specified directory */
+    char *dir_arg = arg.argument[0][1];
+    int chdir_result = 0;
+    if (dir_arg == NULL) {
+      chdir_result = chdir(getenv("HOME"));
+    } else {
+      chdir_result = chdir(dir_arg);
+    }
+    /* Get the current working directory after the `chdir` call */
+    char cwd[CMDLINE_MAX];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+      if (dir_arg) {
+        fprintf(stderr, "+ completed 'cd %s' [%d]\n", dir_arg, chdir_result);
+      } else {
+        fprintf(stderr, "+ completed 'cd' [%d]\n", chdir_result);
+      }
+    } else {
+      perror("getcwd() error");
+    }
+  } else if (!strcmp(arg.argument[0][0], "pwd")) {
+    /* Print the current working directory */
+    char cwd[CMDLINE_MAX];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+      printf("%s\n", cwd);
+      fprintf(stderr, "+ completed 'pwd' [0]\n");
+    } else {
+      perror("getcwd() error");
+    }
+  } else if (!strcmp(arg.argument[0][0], "set")) {
+    char *var = arg.argument[0][1];
+    char *value = arg.argument[0][2];
+    if (!var) {
+      fprintf(stderr, "Error: variable name not provided\n");
+    } else if (!islower(var[0]) || var[1] != '\0') {
+      fprintf(stderr, "Error: invalid variable name\n");
+    } else {
+      env_var(var, value);
+      if (value != NULL) {
+        fprintf(stderr, "+ completed 'set %s %s' [0]\n", var, value);
+      } else {
+        fprintf(stderr, "+ completed 'set %s' [0]\n", var);
+      }
+    }
+
+  } else {
+    /* Regular command */
+    execute_pipeline(&arg);
+  }
+}
+
+
 int main(void) {
   int has_error = 0;
   char cmd[CMDLINE_MAX];
@@ -367,69 +428,13 @@ int main(void) {
     }
 
     inspect_token(&arg, cmd, &has_error);
+    executing_command(arg, cmd);
 
     // decide whether to move forward with execution or not if error occurs
     if (has_error) {
       continue;
     }
 
-    /* Builtin command */
-    if (!strcmp(arg.argument[0][0], "exit")) {
-      fprintf(stderr, "Bye...\n");
-      int retval = 0;
-      fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
-      fflush(stdout);
-      // exit(0);
-      break;
-    } else if (!strcmp(arg.argument[0][0], "cd")) {
-      /* Change directory to the home directory or specified directory */
-      char *dir_arg = arg.argument[0][1];
-      int chdir_result = 0;
-      if (dir_arg == NULL) {
-        chdir_result = chdir(getenv("HOME"));
-      } else {
-        chdir_result = chdir(dir_arg);
-      }
-      /* Get the current working directory after the `chdir` call */
-      char cwd[CMDLINE_MAX];
-      if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        if (dir_arg) {
-          fprintf(stderr, "+ completed 'cd %s' [%d]\n", dir_arg, chdir_result);
-        } else {
-          fprintf(stderr, "+ completed 'cd' [%d]\n", chdir_result);
-        }
-      } else {
-        perror("getcwd() error");
-      }
-    } else if (!strcmp(arg.argument[0][0], "pwd")) {
-      /* Print the current working directory */
-      char cwd[CMDLINE_MAX];
-      if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        printf("%s\n", cwd);
-        fprintf(stderr, "+ completed 'pwd' [0]\n");
-      } else {
-        perror("getcwd() error");
-      }
-    } else if (!strcmp(arg.argument[0][0], "set")) {
-      char *var = arg.argument[0][1];
-      char *value = arg.argument[0][2];
-      if (!var) {
-        fprintf(stderr, "Error: variable name not provided\n");
-      } else if (!islower(var[0]) || var[1] != '\0') {
-        fprintf(stderr, "Error: invalid variable name\n");
-      } else {
-        env_var(var, value);
-        if (value != NULL) {
-          fprintf(stderr, "+ completed 'set %s %s' [0]\n", var, value);
-        } else {
-          fprintf(stderr, "+ completed 'set %s' [0]\n", var);
-        }
-      }
-
-    } else {
-      /* Regular command */
-      execute_pipeline(&arg);
-    }
   }
 
   return EXIT_SUCCESS;
