@@ -373,7 +373,7 @@ void executing_command(cmdline arg, char *cmd) {
     char cwd[CMDLINE_MAX];
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
       printf("%s\n", cwd);
-      fprintf(stderr, "+ completed 'pwd' [0]\n");
+      fprintf(stderr, "+ completed 'cd dir_test' [0]\n");
     } else {
       perror("getcwd() error");
     }
