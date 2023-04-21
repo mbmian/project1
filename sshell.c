@@ -346,8 +346,8 @@ void executing_command(cmdline arg, char *cmd) { {
     int retval = 0;
     fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
     fflush(stdout);
-    // exit(0);
-    break;
+    exit(0);
+    //break;
   } else if (!strcmp(arg.argument[0][0], "cd")) {
     /* Change directory to the home directory or specified directory */
     char *dir_arg = arg.argument[0][1];
